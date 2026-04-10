@@ -1,0 +1,35 @@
+# API
+fastapi==0.111.0
+uvicorn==0.30.1
+pydantic==2.7.1
+
+# Agents & Orchestration
+langgraph==0.1.5
+langchain==0.2.3
+langchain-openai==0.1.8
+openai==1.30.1
+
+# Embeddings & Retrieval
+sentence-transformers==3.0.0
+qdrant-client==1.9.1
+rank-bm25==0.2.2
+
+# Caching
+redis==5.0.4
+
+# Data
+pandas==2.2.2
+numpy==1.26.4
+pyyaml==6.0.1
+
+# Evaluation
+ragas==0.1.9
+
+# Monitoring
+prometheus-client==0.20.0
+
+# Utils
+python-dotenv==1.0.1
+httpx==0.27.0
+tenacity==8.3.0
+loguru==0.7.2

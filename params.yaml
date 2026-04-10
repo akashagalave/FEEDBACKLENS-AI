@@ -1,0 +1,31 @@
+data:
+  raw_path: data/rag_ready.csv
+  eval_path: data/eval/ground_truth.json
+
+embedding:
+  model: sentence-transformers/all-MiniLM-L6-v2
+  batch_size: 64
+
+qdrant:
+  host: localhost
+  port: 6333
+  collection_name: feedbacklens
+
+redis:
+  host: localhost
+  port: 6379
+  ttl_seconds: 3600
+
+llm:
+  model: gpt-4o-mini
+  temperature: 0.2
+  max_tokens: 1000
+
+retrieval:
+  top_k: 10
+  bm25_weight: 0.4
+  vector_weight: 0.6
+
+api:
+  host: 0.0.0.0
+  port: 8000
