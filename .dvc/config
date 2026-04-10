@@ -1,0 +1,5 @@
+[core]
+    remote = feedbacklens-s3
+['remote "feedbacklens-s3"']
+    url = s3://feedbacklens-ai-dvc-store
+    region = ap-south-1
