@@ -1,0 +1,100 @@
+version: "3.9"
+
+services:
+
+  # ─── INFRASTRUCTURE ───────────────────────────────────────
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  # ─── SERVICES ─────────────────────────────────────────────
+
+  gateway:
+    build:
+      context: services/gateway
+      dockerfile: Dockerfile
+    container_name: gateway
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - orchestrator
+    volumes:
+      - ./shared:/app/shared
+
+  orchestrator:
+    build:
+      context: services/orchestrator
+      dockerfile: Dockerfile
+    container_name: orchestrator
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env
+    environment:
+      - UNDERSTANDING_AGENT_URL=http://understanding-agent:8002
+      - INSIGHT_AGENT_URL=http://insight-agent:8003
+      - RECOMMENDATION_AGENT_URL=http://recommendation-agent:8004
+    depends_on:
+      - understanding-agent
+      - insight-agent
+      - recommendation-agent
+    volumes:
+      - ./shared:/app/shared
+
+  understanding-agent:
+    build:
+      context: services/understanding-agent
+      dockerfile: Dockerfile
+    container_name: understanding-agent
+    ports:
+      - "8002:8002"
+    env_file:
+      - .env
+    volumes:
+      - ./shared:/app/shared
+
+  insight-agent:
+    build:
+      context: services/insight-agent
+      dockerfile: Dockerfile
+    container_name: insight-agent
+    ports:
+      - "8003:8003"
+    env_file:
+      - .env
+    environment:
+      - QDRANT_HOST=qdrant
+      - REDIS_HOST=redis
+    depends_on:
+      - qdrant
+      - redis
+    volumes:
+      - ./shared:/app/shared
+
+  recommendation-agent:
+    build:
+      context: services/recommendation-agent
+      dockerfile: Dockerfile
+    container_name: recommendation-agent
+    ports:
+      - "8004:8004"
+    env_file:
+      - .env
+    volumes:
+      - ./shared:/app/shared
+
+volumes:
+  qdrant_storage:
