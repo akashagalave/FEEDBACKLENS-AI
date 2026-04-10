@@ -1,0 +1,26 @@
+stages:
+  clean:
+    cmd: python ingestion-pipeline/src/data_cleaner.py
+    deps:
+      - ingestion-pipeline/src/data_cleaner.py
+      - data/rag_ready.csv
+      - params.yaml
+    outs:
+      - data/cleaned.csv
+
+  embed:
+    cmd: python ingestion-pipeline/src/embedder.py
+    deps:
+      - ingestion-pipeline/src/embedder.py
+      - data/cleaned.csv
+      - params.yaml
+    outs:
+      - data/embeddings.npy
+
+  index:
+    cmd: python ingestion-pipeline/src/qdrant_indexer.py
+    deps:
+      - ingestion-pipeline/src/qdrant_indexer.py
+      - data/cleaned.csv
+      - data/embeddings.npy
+      - params.yaml
