@@ -54,7 +54,7 @@ jobs:
         run: dvc pull data/rag_ready.csv.dvc
 
       - name: Run DVC pipeline
-        run: dvc repro --no-cache
+        run: dvc repro --force
 
       - name: Push artifacts to S3
         run: dvc push
