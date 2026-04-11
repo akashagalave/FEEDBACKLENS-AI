@@ -7,10 +7,10 @@ embedding:
   batch_size: 64
 
 qdrant:
-  host: ${QDRANT_HOST}
+  host: localhost
   port: 6333
   collection_name: feedbacklens
-  api_key: ${QDRANT_API_KEY}
+  api_key: null
 redis:
   host: localhost
   port: 6379

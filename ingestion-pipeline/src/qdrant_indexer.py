@@ -29,12 +29,16 @@ def load_params(path: str = "params.yaml") -> dict:
 #         port=params["qdrant"]["port"]
 #     )
 def get_client(params: dict) -> QdrantClient:
+    import os
+    host = os.environ.get("QDRANT_HOST", params["qdrant"]["host"])
+    port = int(os.environ.get("QDRANT_PORT", params["qdrant"]["port"]))
+    api_key = os.environ.get("QDRANT_API_KEY", params["qdrant"].get("api_key"))
+    
     return QdrantClient(
-        host=params["qdrant"]["host"],
-        port=params["qdrant"]["port"],
-        api_key=params["qdrant"].get("api_key")
+        host=host,
+        port=port,
+        api_key=api_key if api_key else None
     )
-
 
 # ---------------------------
 # Create Collection
