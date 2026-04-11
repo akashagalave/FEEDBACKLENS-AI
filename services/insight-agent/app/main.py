@@ -1,6 +1,8 @@
 from fastapi import FastAPI, HTTPException
+from contextlib import asynccontextmanager
 from .schema import InsightRequest, InsightResponse
 from .agent import generate_insights
+from .hybrid_search import get_embedding_model
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../"))
@@ -8,7 +10,16 @@ from shared.logger import get_logger
 
 logger = get_logger("insight-agent")
 
-app = FastAPI(title="FeedbackLens Insight Agent", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Pre-loading embedding model...")
+    get_embedding_model()
+    logger.info("Embedding model ready!")
+    yield
+
+
+app = FastAPI(title="FeedbackLens Insight Agent", version="1.0.0", lifespan=lifespan)
 
 
 @app.get("/health")

@@ -31,6 +31,7 @@ async def generate_insights(
     chunks = await hybrid_search(query, company, focus, top_k)
 
     if not chunks:
+        logger.warning(f"No chunks found for company={company}")
         return {
             "top_issues": ["No data found for this company"],
             "patterns": [],
@@ -44,6 +45,7 @@ async def generate_insights(
     ])
 
     sample_reviews = [c.review for c in chunks[:3]]
+    logger.info(f"Retrieved {len(chunks)} chunks for {company}")
 
     # ─── LLM CALL ────────────────────────────────────────────
     try:
@@ -68,7 +70,7 @@ async def generate_insights(
         return result
 
     except json.JSONDecodeError as e:
-        logger.error(f"JSON parse error: {e}")
+        logger.error(f"JSON parse error: {e}, content: {content}")
         return {
             "top_issues": ["Error parsing insights"],
             "patterns": [],

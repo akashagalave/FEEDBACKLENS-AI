@@ -22,8 +22,12 @@ def get_cached(key: str) -> dict | None:
     try:
         data = redis_client.get(key)
         if data:
+            result = json.loads(data)
+            if not result.get("top_issues") or result["top_issues"] == ["No data found for this company"]:
+                logger.info(f"Cache SKIP (empty result): {key}")
+                return None
             logger.info(f"Cache HIT: {key}")
-            return json.loads(data)
+            return result
     except Exception as e:
         logger.warning(f"Redis get error: {e}")
     return None
@@ -31,6 +35,9 @@ def get_cached(key: str) -> dict | None:
 
 def set_cache(key: str, value: dict, ttl: int = 3600):
     try:
+        if not value.get("top_issues") or value["top_issues"] == ["No data found for this company"]:
+            logger.info(f"Cache SKIP (not caching empty result): {key}")
+            return
         redis_client.setex(key, ttl, json.dumps(value))
         logger.info(f"Cache SET: {key}")
     except Exception as e:

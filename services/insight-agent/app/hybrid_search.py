@@ -11,8 +11,15 @@ from shared.schemas import RetrievedChunk
 
 logger = get_logger("insight-agent")
 
-embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-qdrant = QdrantClient(host=settings.qdrant_host, port=settings.qdrant_port)
+_embedding_model = None
+
+def get_embedding_model():
+    global _embedding_model
+    if _embedding_model is None:
+        logger.info("Loading embedding model...")
+        _embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+        logger.info("Embedding model loaded!")
+    return _embedding_model
 
 
 async def hybrid_search(
@@ -22,8 +29,10 @@ async def hybrid_search(
     top_k: int = 10
 ) -> list[RetrievedChunk]:
 
-    # ─── VECTOR SEARCH ───────────────────────────────────────
-    query_embedding = embedding_model.encode(query).tolist()
+    qdrant = QdrantClient(host=settings.qdrant_host, port=settings.qdrant_port)
+    model = get_embedding_model()
+
+    query_embedding = model.encode(query).tolist()
 
     qdrant_filter = Filter(
         must=[
@@ -53,7 +62,6 @@ async def hybrid_search(
         logger.warning(f"No vector results for company={company}")
         return []
 
-    # ─── BM25 RE-RANKING ─────────────────────────────────────
     corpus = [r.payload["review"] for r in vector_results]
     tokenized_corpus = [doc.lower().split() for doc in corpus]
     bm25 = BM25Okapi(tokenized_corpus)
@@ -61,7 +69,6 @@ async def hybrid_search(
     tokenized_query = query.lower().split()
     bm25_scores = bm25.get_scores(tokenized_query)
 
-    # ─── COMBINE SCORES ──────────────────────────────────────
     vector_weight = 0.6
     bm25_weight = 0.4
 
@@ -69,11 +76,8 @@ async def hybrid_search(
     for i, result in enumerate(vector_results):
         vector_score = result.score
         bm25_score = float(bm25_scores[i])
-
-        # Normalize bm25 score
         max_bm25 = max(bm25_scores) if max(bm25_scores) > 0 else 1
         bm25_normalized = bm25_score / max_bm25
-
         final_score = (vector_weight * vector_score) + (bm25_weight * bm25_normalized)
         combined.append((result, final_score))
 

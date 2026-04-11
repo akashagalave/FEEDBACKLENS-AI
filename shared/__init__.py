@@ -1,5 +1,5 @@
-from ..shared.logger import get_logger
-from ..shared.schemas import (
+from shared.logger import get_logger
+from shared.schemas import (
     QueryRequest,
     BatchRequest,
     UnderstandingOutput,

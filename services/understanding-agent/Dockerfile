@@ -2,11 +2,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY services/understanding-agent/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
-COPY ../../shared /app/shared
+COPY services/understanding-agent/app ./app
+COPY shared ./shared
 
 EXPOSE 8002
 

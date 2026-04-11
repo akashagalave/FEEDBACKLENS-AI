@@ -2,8 +2,6 @@ version: "3.9"
 
 services:
 
-  # ─── INFRASTRUCTURE ───────────────────────────────────────
-
   qdrant:
     image: qdrant/qdrant:latest
     container_name: qdrant
@@ -18,12 +16,10 @@ services:
     ports:
       - "6379:6379"
 
-  # ─── SERVICES ─────────────────────────────────────────────
-
   gateway:
     build:
-      context: services/gateway
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/gateway/Dockerfile
     container_name: gateway
     ports:
       - "8000:8000"
@@ -31,13 +27,11 @@ services:
       - .env
     depends_on:
       - orchestrator
-    volumes:
-      - ./shared:/app/shared
 
   orchestrator:
     build:
-      context: services/orchestrator
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/orchestrator/Dockerfile
     container_name: orchestrator
     ports:
       - "8001:8001"
@@ -51,25 +45,21 @@ services:
       - understanding-agent
       - insight-agent
       - recommendation-agent
-    volumes:
-      - ./shared:/app/shared
 
   understanding-agent:
     build:
-      context: services/understanding-agent
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/understanding-agent/Dockerfile
     container_name: understanding-agent
     ports:
       - "8002:8002"
     env_file:
       - .env
-    volumes:
-      - ./shared:/app/shared
 
   insight-agent:
     build:
-      context: services/insight-agent
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/insight-agent/Dockerfile
     container_name: insight-agent
     ports:
       - "8003:8003"
@@ -81,20 +71,16 @@ services:
     depends_on:
       - qdrant
       - redis
-    volumes:
-      - ./shared:/app/shared
 
   recommendation-agent:
     build:
-      context: services/recommendation-agent
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/recommendation-agent/Dockerfile
     container_name: recommendation-agent
     ports:
       - "8004:8004"
     env_file:
       - .env
-    volumes:
-      - ./shared:/app/shared
 
 volumes:
   qdrant_storage:
