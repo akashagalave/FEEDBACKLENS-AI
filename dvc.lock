@@ -53,8 +53,8 @@ stages:
       size: 190592
     - path: ingestion-pipeline/src/qdrant_indexer.py
       hash: md5
-      md5: f3cf58c43d810d52de7e980e7b711edf
-      size: 2694
+      md5: fcffa462058ac104c3474e54c1830787
+      size: 4441
     - path: params.yaml
       hash: md5
       md5: 934a3f5d5a5c227b96211fda1ffb9ca8

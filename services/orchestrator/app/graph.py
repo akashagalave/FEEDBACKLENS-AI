@@ -36,14 +36,14 @@ async def understanding_node(state: AgentState) -> AgentState:
 # ─── NODE 2: INSIGHT (RAG) ────────────────────────────────────
 async def insight_node(state: AgentState) -> AgentState:
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
                 f"{settings.insight_agent_url}/insights",
                 json={
                     "query": state["query"],
                     "company": state["company"],
                     "focus": state.get("focus"),
-                    "top_k": state.get("top_k", 10)
+                    "top_k": int(state.get("top_k") or 10)
                 }
             )
             response.raise_for_status()
@@ -91,7 +91,7 @@ async def recommendation_node(state: AgentState) -> AgentState:
 def should_continue(state: AgentState) -> str:
     if state.get("error"):
         return "end"
-    if not state.get("top_issues"):
+    if not state.get("top_issues") or state.get("top_issues") == ["No data found for this company"]:
         logger.warning("No issues found — ending early")
         return "end"
     return "recommend"

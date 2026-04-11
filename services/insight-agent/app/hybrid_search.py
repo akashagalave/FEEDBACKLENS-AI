@@ -1,10 +1,11 @@
-from qdrant_client import QdrantClient
+from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import Filter, FieldCondition, MatchValue
 from sentence_transformers import SentenceTransformer
 from rank_bm25 import BM25Okapi
 from .config import settings
 import sys
 import os
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../"))
 from shared.logger import get_logger
 from shared.schemas import RetrievedChunk
@@ -13,6 +14,10 @@ logger = get_logger("insight-agent")
 
 _embedding_model = None
 
+
+# ---------------------------
+# Embedding Model Loader
+# ---------------------------
 def get_embedding_model():
     global _embedding_model
     if _embedding_model is None:
@@ -22,6 +27,9 @@ def get_embedding_model():
     return _embedding_model
 
 
+# ---------------------------
+# Hybrid Search (FINAL)
+# ---------------------------
 async def hybrid_search(
     query: str,
     company: str,
@@ -29,70 +37,110 @@ async def hybrid_search(
     top_k: int = 10
 ) -> list[RetrievedChunk]:
 
-    qdrant = QdrantClient(host=settings.qdrant_host, port=settings.qdrant_port)
-    model = get_embedding_model()
+    logger.info(f"Hybrid search | query={query} | company={company} | focus={focus}")
 
+    qdrant = AsyncQdrantClient(
+        host=settings.qdrant_host,
+        port=settings.qdrant_port
+    )
+
+    model = get_embedding_model()
     query_embedding = model.encode(query).tolist()
 
-    qdrant_filter = Filter(
-        must=[
-            FieldCondition(
-                key="company",
-                match=MatchValue(value=company.lower())
-            )
-        ]
-    )
+    # ✅ ONLY COMPANY FILTER (FIXED)
+    qdrant_filter = None
 
-    if focus:
-        qdrant_filter.must.append(
-            FieldCondition(
-                key="issue",
-                match=MatchValue(value=focus.lower())
-            )
+    if company and company != "unknown":
+        qdrant_filter = Filter(
+            must=[
+                FieldCondition(
+                    key="company",
+                    match=MatchValue(value=company.lower())
+                )
+            ]
         )
 
-    vector_results = qdrant.search(
-        collection_name="feedbacklens",
+    # ---------------------------
+    # VECTOR SEARCH
+    # ---------------------------
+    vector_results = await qdrant.search(
+        collection_name=settings.collection_name,  # ✅ no hardcoding
         query_vector=query_embedding,
         query_filter=qdrant_filter,
-        limit=top_k * 2
+        limit=top_k * 3  # more candidates for better ranking
     )
 
+    # 🔥 FALLBACK: if filter fails
     if not vector_results:
-        logger.warning(f"No vector results for company={company}")
+        logger.warning("⚠️ No results with filter → retrying without filter")
+
+        vector_results = await qdrant.search(
+            collection_name=settings.collection_name,
+            query_vector=query_embedding,
+            limit=top_k * 3
+        )
+
+    await qdrant.close()
+
+    if not vector_results:
+        logger.error("❌ No results even after fallback")
         return []
 
-    corpus = [r.payload["review"] for r in vector_results]
+    logger.info(f"Vector results count: {len(vector_results)}")
+
+    # ---------------------------
+    # BM25 RANKING
+    # ---------------------------
+    corpus = [r.payload.get("review", "") for r in vector_results]
+
     tokenized_corpus = [doc.lower().split() for doc in corpus]
     bm25 = BM25Okapi(tokenized_corpus)
 
     tokenized_query = query.lower().split()
     bm25_scores = bm25.get_scores(tokenized_query)
 
-    vector_weight = 0.6
-    bm25_weight = 0.4
+    # Normalize BM25
+    max_bm25 = max(bm25_scores) if max(bm25_scores) > 0 else 1
+
+    # ---------------------------
+    # HYBRID SCORING
+    # ---------------------------
+    vector_weight = 0.7   # slightly higher trust on embeddings
+    bm25_weight = 0.3
 
     combined = []
+
     for i, result in enumerate(vector_results):
-        vector_score = result.score
-        bm25_score = float(bm25_scores[i])
-        max_bm25 = max(bm25_scores) if max(bm25_scores) > 0 else 1
-        bm25_normalized = bm25_score / max_bm25
-        final_score = (vector_weight * vector_score) + (bm25_weight * bm25_normalized)
+        vector_score = result.score or 0.0
+        bm25_score = float(bm25_scores[i]) / max_bm25
+
+        final_score = (vector_weight * vector_score) + (bm25_weight * bm25_score)
+
         combined.append((result, final_score))
 
+    # Sort by score
     combined.sort(key=lambda x: x[1], reverse=True)
+
     top_results = combined[:top_k]
 
+    # ---------------------------
+    # FORMAT OUTPUT
+    # ---------------------------
     chunks = []
-    for result, score in top_results:
-        chunks.append(RetrievedChunk(
-            review=result.payload["review"],
-            company=result.payload["company"],
-            domain=result.payload["domain"],
-            issue=result.payload["issue"],
-            score=round(score, 4)
-        ))
 
-    logger.info(f"Hybrid search returned {len(chunks)} chunks for {company}")
+    for result, score in top_results:
+        payload = result.payload or {}
+
+        chunks.append(
+            RetrievedChunk(
+                review=payload.get("review", ""),
+                company=payload.get("company", ""),
+                domain=payload.get("domain", ""),
+                issue=payload.get("issue", ""),
+                score=round(score, 4)
+            )
+        )
+
+    logger.info(f"✅ Hybrid search returned {len(chunks)} chunks for {company}")
+
     return chunks
