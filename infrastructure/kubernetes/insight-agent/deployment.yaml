@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: insight-agent
+  namespace: feedbacklens
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: insight-agent
+  template:
+    metadata:
+      labels:
+        app: insight-agent
+    spec:
+      containers:
+        - name: insight-agent
+          image: 618015514032.dkr.ecr.us-east-1.amazonaws.com/feedbacklens-insight-agent:latest
+          ports:
+            - containerPort: 8003
+          envFrom:
+            - secretRef:
+                name: feedbacklens-secrets
+          env:
+            - name: QDRANT_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: feedbacklens-secrets
+                  key: QDRANT_HOST
+            - name: REDIS_HOST
+              value: "redis"
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"

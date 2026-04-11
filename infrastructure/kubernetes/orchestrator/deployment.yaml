@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orchestrator
+  namespace: feedbacklens
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orchestrator
+  template:
+    metadata:
+      labels:
+        app: orchestrator
+    spec:
+      containers:
+        - name: orchestrator
+          image: 618015514032.dkr.ecr.us-east-1.amazonaws.com/feedbacklens-orchestrator:latest
+          ports:
+            - containerPort: 8001
+          envFrom:
+            - secretRef:
+                name: feedbacklens-secrets
+          env:
+            - name: UNDERSTANDING_AGENT_URL
+              value: "http://understanding-agent:8002"
+            - name: INSIGHT_AGENT_URL
+              value: "http://insight-agent:8003"
+            - name: RECOMMENDATION_AGENT_URL
+              value: "http://recommendation-agent:8004"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: understanding-agent
+  namespace: feedbacklens
+spec:
+  selector:
+    app: understanding-agent
+  ports:
+    - port: 8002
+      targetPort: 8002
+  type: ClusterIP

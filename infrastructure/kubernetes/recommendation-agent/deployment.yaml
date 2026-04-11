@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recommendation-agent
+  namespace: feedbacklens
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: recommendation-agent
+  template:
+    metadata:
+      labels:
+        app: recommendation-agent
+    spec:
+      containers:
+        - name: recommendation-agent
+          image: 618015514032.dkr.ecr.us-east-1.amazonaws.com/feedbacklens-recommendation-agent:latest
+          ports:
+            - containerPort: 8004
+          envFrom:
+            - secretRef:
+                name: feedbacklens-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
