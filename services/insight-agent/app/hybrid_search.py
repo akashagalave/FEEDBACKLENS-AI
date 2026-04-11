@@ -28,6 +28,23 @@ def get_embedding_model():
 
 
 # ---------------------------
+# Qdrant Client (Cloud + Local support)
+# ---------------------------
+def get_qdrant_client() -> AsyncQdrantClient:
+    host = settings.qdrant_host
+    if host.startswith("http://") or host.startswith("https://"):
+        return AsyncQdrantClient(
+            url=host,
+            api_key=settings.qdrant_api_key
+        )
+    return AsyncQdrantClient(
+        host=host,
+        port=settings.qdrant_port,
+        api_key=settings.qdrant_api_key if settings.qdrant_api_key else None
+    )
+
+
+# ---------------------------
 # Hybrid Search (FINAL)
 # ---------------------------
 async def hybrid_search(
@@ -39,20 +56,11 @@ async def hybrid_search(
 
     logger.info(f"Hybrid search | query={query} | company={company} | focus={focus}")
 
-
-    qdrant = AsyncQdrantClient(
-    host=settings.qdrant_host,
-    port=settings.qdrant_port,
-    api_key=settings.qdrant_api_key
-      )
-
-
+    qdrant = get_qdrant_client()
     model = get_embedding_model()
     query_embedding = model.encode(query).tolist()
 
-    # ✅ ONLY COMPANY FILTER (FIXED)
     qdrant_filter = None
-
     if company and company != "unknown":
         qdrant_filter = Filter(
             must=[
@@ -67,16 +75,15 @@ async def hybrid_search(
     # VECTOR SEARCH
     # ---------------------------
     vector_results = await qdrant.search(
-        collection_name=settings.collection_name,  # ✅ no hardcoding
+        collection_name=settings.collection_name,
         query_vector=query_embedding,
         query_filter=qdrant_filter,
-        limit=top_k * 3  # more candidates for better ranking
+        limit=top_k * 3
     )
 
-    # 🔥 FALLBACK: if filter fails
+    # FALLBACK: if filter fails
     if not vector_results:
-        logger.warning("⚠️ No results with filter → retrying without filter")
-
+        logger.warning("No results with filter → retrying without filter")
         vector_results = await qdrant.search(
             collection_name=settings.collection_name,
             query_vector=query_embedding,
@@ -86,7 +93,7 @@ async def hybrid_search(
     await qdrant.close()
 
     if not vector_results:
-        logger.error("❌ No results even after fallback")
+        logger.error("No results even after fallback")
         return []
 
     logger.info(f"Vector results count: {len(vector_results)}")
@@ -95,45 +102,36 @@ async def hybrid_search(
     # BM25 RANKING
     # ---------------------------
     corpus = [r.payload.get("review", "") for r in vector_results]
-
     tokenized_corpus = [doc.lower().split() for doc in corpus]
     bm25 = BM25Okapi(tokenized_corpus)
 
     tokenized_query = query.lower().split()
     bm25_scores = bm25.get_scores(tokenized_query)
 
-    # Normalize BM25
     max_bm25 = max(bm25_scores) if max(bm25_scores) > 0 else 1
 
     # ---------------------------
     # HYBRID SCORING
     # ---------------------------
-    vector_weight = 0.7   # slightly higher trust on embeddings
+    vector_weight = 0.7
     bm25_weight = 0.3
 
     combined = []
-
     for i, result in enumerate(vector_results):
         vector_score = result.score or 0.0
         bm25_score = float(bm25_scores[i]) / max_bm25
-
         final_score = (vector_weight * vector_score) + (bm25_weight * bm25_score)
-
         combined.append((result, final_score))
 
-    # Sort by score
     combined.sort(key=lambda x: x[1], reverse=True)
-
     top_results = combined[:top_k]
 
     # ---------------------------
     # FORMAT OUTPUT
     # ---------------------------
     chunks = []
-
     for result, score in top_results:
         payload = result.payload or {}
-
         chunks.append(
             RetrievedChunk(
                 review=payload.get("review", ""),
@@ -144,6 +142,5 @@ async def hybrid_search(
             )
         )
 
-    logger.info(f"✅ Hybrid search returned {len(chunks)} chunks for {company}")
-
+    logger.info(f"Hybrid search returned {len(chunks)} chunks for {company}")
     return chunks
