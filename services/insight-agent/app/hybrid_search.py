@@ -14,10 +14,6 @@ logger = get_logger("insight-agent")
 
 _embedding_model = None
 
-
-# ---------------------------
-# Embedding Model Loader
-# ---------------------------
 def get_embedding_model():
     global _embedding_model
     if _embedding_model is None:
@@ -27,9 +23,6 @@ def get_embedding_model():
     return _embedding_model
 
 
-# ---------------------------
-# Qdrant Client (Cloud + Local support)
-# ---------------------------
 def get_qdrant_client() -> AsyncQdrantClient:
     host = settings.qdrant_host
     if host.startswith("http://") or host.startswith("https://"):
@@ -44,9 +37,6 @@ def get_qdrant_client() -> AsyncQdrantClient:
     )
 
 
-# ---------------------------
-# Hybrid Search (FINAL)
-# ---------------------------
 async def hybrid_search(
     query: str,
     company: str,
@@ -71,9 +61,7 @@ async def hybrid_search(
             ]
         )
 
-    # ---------------------------
-    # VECTOR SEARCH
-    # ---------------------------
+   
     vector_results = await qdrant.search(
         collection_name=settings.collection_name,
         query_vector=query_embedding,
@@ -81,7 +69,6 @@ async def hybrid_search(
         limit=top_k * 3
     )
 
-    # FALLBACK: if filter fails
     if not vector_results:
         logger.warning("No results with filter → retrying without filter")
         vector_results = await qdrant.search(
@@ -98,9 +85,7 @@ async def hybrid_search(
 
     logger.info(f"Vector results count: {len(vector_results)}")
 
-    # ---------------------------
-    # BM25 RANKING
-    # ---------------------------
+  
     corpus = [r.payload.get("review", "") for r in vector_results]
     tokenized_corpus = [doc.lower().split() for doc in corpus]
     bm25 = BM25Okapi(tokenized_corpus)
@@ -110,9 +95,6 @@ async def hybrid_search(
 
     max_bm25 = max(bm25_scores) if max(bm25_scores) > 0 else 1
 
-    # ---------------------------
-    # HYBRID SCORING
-    # ---------------------------
     vector_weight = 0.7
     bm25_weight = 0.3
 
@@ -126,9 +108,6 @@ async def hybrid_search(
     combined.sort(key=lambda x: x[1], reverse=True)
     top_results = combined[:top_k]
 
-    # ---------------------------
-    # FORMAT OUTPUT
-    # ---------------------------
     chunks = []
     for result, score in top_results:
         payload = result.payload or {}

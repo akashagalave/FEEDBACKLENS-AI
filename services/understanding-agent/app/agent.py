@@ -12,32 +12,23 @@ logger = get_logger("understanding-agent")
 
 client = AsyncOpenAI(api_key=settings.openai_api_key)
 
-
-# ---------------------------
-# KNOWN कंपनियाँ
-# ---------------------------
 KNOWN_COMPANIES = ["swiggy", "zomato", "uber"]
 
 
-# ---------------------------
-# NORMALIZATION LOGIC (CRITICAL)
-# ---------------------------
+
 def normalize_company(company: str, query: str):
     if not company:
         return None
 
     company = company.lower().strip()
 
-    # ✅ Exact match
     if company in KNOWN_COMPANIES:
         return company
 
-    # ✅ Partial match (LLM errors fix)
     for c in KNOWN_COMPANIES:
         if c in company:
             return c
 
-    # ✅ Fallback from query
     query = query.lower()
     for c in KNOWN_COMPANIES:
         if c in query:
@@ -46,9 +37,6 @@ def normalize_company(company: str, query: str):
     return None
 
 
-# ---------------------------
-# MAIN FUNCTION
-# ---------------------------
 async def understand_query(query: str, company: str = None) -> dict:
     logger.info(f"Understanding query: {query}")
 
@@ -70,10 +58,9 @@ async def understand_query(query: str, company: str = None) -> dict:
         content = response.choices[0].message.content.strip()
         result = json.loads(content)
 
-        # 🔥 RAW OUTPUT
         logger.info(f"Raw LLM output: {result}")
 
-        # 🔥 CRITICAL FIX: Normalize company
+        
         extracted_company = normalize_company(result.get("company"), query)
 
         logger.info(f"Final normalized company: {extracted_company}")

@@ -16,8 +16,6 @@ from loguru import logger
 from dotenv import load_dotenv
 load_dotenv()
 
-
-# ─── CONFIG ──────────────────────────────────────────────────
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 QDRANT_HOST = os.environ.get("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.environ.get("QDRANT_PORT", 6333))
@@ -27,15 +25,12 @@ COLLECTION_NAME = "feedbacklens"
 client = OpenAI(api_key=OPENAI_API_KEY)
 embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
-
-# ─── QDRANT CLIENT ───────────────────────────────────────────
 def get_qdrant():
     if QDRANT_HOST.startswith("http"):
         return QdrantClient(url=QDRANT_HOST, api_key=QDRANT_API_KEY)
     return QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, api_key=QDRANT_API_KEY)
 
 
-# ─── RETRIEVE CONTEXTS ───────────────────────────────────────
 def retrieve_contexts(query: str, company: str, top_k: int = 5) -> list[str]:
     qdrant = get_qdrant()
     embedding = embedding_model.encode(query).tolist()
@@ -51,8 +46,6 @@ def retrieve_contexts(query: str, company: str, top_k: int = 5) -> list[str]:
     )
     return [r.payload["review"] for r in results]
 
-
-# ─── GENERATE ANSWER ─────────────────────────────────────────
 def generate_answer(query: str, contexts: list[str]) -> str:
     context_str = "\n".join(f"- {c}" for c in contexts)
     response = client.chat.completions.create(
@@ -67,7 +60,6 @@ def generate_answer(query: str, contexts: list[str]) -> str:
     return response.choices[0].message.content.strip()
 
 
-# ─── EVAL DATASET ────────────────────────────────────────────
 EVAL_QUESTIONS = [
     {"query": "What are the main delivery issues with Swiggy?", "company": "swiggy"},
     {"query": "What do customers complain about Swiggy delivery time?", "company": "swiggy"},
@@ -77,7 +69,6 @@ EVAL_QUESTIONS = [
 ]
 
 
-# ─── RUN EVALUATION ──────────────────────────────────────────
 def run_evaluation():
     logger.info("Starting RAGAS evaluation...")
 

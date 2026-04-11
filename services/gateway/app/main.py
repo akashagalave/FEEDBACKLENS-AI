@@ -13,7 +13,7 @@ logger = get_logger("gateway")
 
 app = FastAPI(title="FeedbackLens Gateway", version="1.0.0")
 
-# ─── METRICS ─────────────────────────────────────────────────
+
 REQUEST_COUNT = Counter(
     "gateway_requests_total",
     "Total requests",
@@ -36,12 +36,12 @@ ERROR_COUNT = Counter(
     ["endpoint", "error_type"]
 )
 
-# Mount prometheus metrics endpoint
+
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
 
 
-# ─── MIDDLEWARE FOR AUTO LATENCY TRACKING ────────────────────
+
 @app.middleware("http")
 async def track_metrics(request: Request, call_next):
     endpoint = request.url.path
@@ -65,13 +65,12 @@ async def track_metrics(request: Request, call_next):
         ACTIVE_REQUESTS.labels(endpoint=endpoint).dec()
 
 
-# ─── HEALTH ──────────────────────────────────────────────────
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "gateway"}
 
 
-# ─── QUERY ENDPOINT ──────────────────────────────────────────
 @app.post("/analyze")
 async def analyze(request: QueryRequest):
     try:
@@ -88,7 +87,6 @@ async def analyze(request: QueryRequest):
         raise HTTPException(status_code=502, detail="Orchestrator unreachable")
 
 
-# ─── BATCH ENDPOINT ──────────────────────────────────────────
 @app.post("/batch")
 async def batch(request: BatchRequest):
     try:

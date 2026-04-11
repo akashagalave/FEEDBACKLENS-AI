@@ -21,13 +21,12 @@ async def generate_insights(
     top_k: int = 10
 ) -> dict:
 
-    # ─── CHECK CACHE ─────────────────────────────────────────
     cache_key = make_cache_key(query, company, focus)
     cached = get_cached(cache_key)
     if cached:
         return cached
 
-    # ─── RETRIEVE ────────────────────────────────────────────
+
     chunks = await hybrid_search(query, company, focus, top_k)
 
     if not chunks:
@@ -39,7 +38,7 @@ async def generate_insights(
             "confidence_score": 0.0
         }
 
-    # ─── BUILD CONTEXT ───────────────────────────────────────
+
     reviews_text = "\n".join([
         f"- [{c.issue}] {c.review}" for c in chunks
     ])
@@ -47,7 +46,7 @@ async def generate_insights(
     sample_reviews = [c.review for c in chunks[:3]]
     logger.info(f"Retrieved {len(chunks)} chunks for {company}")
 
-    # ─── LLM CALL ────────────────────────────────────────────
+   
     try:
         response = await client.chat.completions.create(
             model="gpt-4o-mini",
@@ -63,7 +62,7 @@ async def generate_insights(
         result = json.loads(content)
         result["sample_reviews"] = sample_reviews
 
-        # ─── CACHE RESULT ────────────────────────────────────
+        
         set_cache(cache_key, result)
 
         logger.info(f"Insights generated for {company}")

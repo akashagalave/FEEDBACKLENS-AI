@@ -10,7 +10,6 @@ from shared.logger import get_logger
 logger = get_logger("orchestrator")
 
 
-# ─── NODE 1: UNDERSTANDING ────────────────────────────────────
 async def understanding_node(state: AgentState) -> AgentState:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -33,7 +32,6 @@ async def understanding_node(state: AgentState) -> AgentState:
         return state
 
 
-# ─── NODE 2: INSIGHT (RAG) ────────────────────────────────────
 async def insight_node(state: AgentState) -> AgentState:
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:
@@ -62,7 +60,6 @@ async def insight_node(state: AgentState) -> AgentState:
         return state
 
 
-# ─── NODE 3: RECOMMENDATION ───────────────────────────────────
 async def recommendation_node(state: AgentState) -> AgentState:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -87,7 +84,6 @@ async def recommendation_node(state: AgentState) -> AgentState:
         return state
 
 
-# ─── CONDITIONAL ROUTING ──────────────────────────────────────
 def should_continue(state: AgentState) -> str:
     if state.get("error"):
         return "end"
@@ -97,7 +93,6 @@ def should_continue(state: AgentState) -> str:
     return "recommend"
 
 
-# ─── BUILD GRAPH ──────────────────────────────────────────────
 def build_graph():
     graph = StateGraph(AgentState)
 

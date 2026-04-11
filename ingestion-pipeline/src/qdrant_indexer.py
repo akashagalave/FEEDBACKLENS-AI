@@ -12,29 +12,19 @@ from loguru import logger
 from tqdm import tqdm
 
 
-# ---------------------------
-# Load params
-# ---------------------------
+
 def load_params(path: str = "params.yaml") -> dict:
     with open(path, "r") as f:
         return yaml.safe_load(f)
 
 
-# ---------------------------
-# Qdrant Client
-# ---------------------------
-# def get_client(params: dict) -> QdrantClient:
-#     return QdrantClient(
-#         host=params["qdrant"]["host"],
-#         port=params["qdrant"]["port"]
-#     )
 def get_client(params: dict) -> QdrantClient:
     import os
     host = os.environ.get("QDRANT_HOST", params["qdrant"]["host"])
     port = int(os.environ.get("QDRANT_PORT", params["qdrant"]["port"]))
     api_key = os.environ.get("QDRANT_API_KEY", params["qdrant"].get("api_key"))
 
-    # Qdrant Cloud URL support
+  
     if host.startswith("http://") or host.startswith("https://"):
         return QdrantClient(
             url=host,
@@ -46,9 +36,7 @@ def get_client(params: dict) -> QdrantClient:
         port=port,
         api_key=api_key if api_key else None
     )
-# ---------------------------
-# Create Collection
-# ---------------------------
+
 def create_collection(client: QdrantClient, collection_name: str, vector_size: int):
     existing = [c.name for c in client.get_collections().collections]
 
@@ -66,7 +54,6 @@ def create_collection(client: QdrantClient, collection_name: str, vector_size: i
 
     logger.info(f"Created collection: {collection_name}")
 
-    # 🔥 Payload indexes for fast filtering
     client.create_payload_index(
         collection_name=collection_name,
         field_name="company",
@@ -88,24 +75,17 @@ def create_collection(client: QdrantClient, collection_name: str, vector_size: i
     logger.info("Payload indexes created (company, domain, issue)")
 
 
-# ---------------------------
-# Normalize helper
-# ---------------------------
 def clean_text(val):
     if pd.isna(val):
         return ""
     return str(val).lower().strip()
 
 
-# ---------------------------
-# Index Data
-# ---------------------------
 def index_data(client: QdrantClient, collection_name: str, df: pd.DataFrame, embeddings: np.ndarray):
 
-    # ✅ Safety check
+    
     assert len(df) == len(embeddings), "Mismatch between data and embeddings"
 
-    # 🔍 Debug sample
     logger.info("Sample data preview:")
     logger.info(df.head(3)[["company", "domain", "issue"]])
 
@@ -117,15 +97,15 @@ def index_data(client: QdrantClient, collection_name: str, df: pd.DataFrame, emb
             id=i,
             vector=embeddings[i].tolist(),
             payload={
-                # ✅ NORMALIZED FIELDS (CRITICAL FIX)
+          
                 "company": clean_text(row.get("company")),
                 "domain": clean_text(row.get("domain")),
                 "issue": clean_text(row.get("issue")),
 
-                # Optional fields
+          
                 "rating": float(row["rating"]) if "rating" in row and pd.notna(row["rating"]) else None,
 
-                # Keep raw text readable
+        
                 "review": str(row.get("review", "")).strip(),
                 "rag_text": str(row.get("rag_text", "")).strip()
             }
@@ -133,7 +113,7 @@ def index_data(client: QdrantClient, collection_name: str, df: pd.DataFrame, emb
 
         points.append(point)
 
-    # 🚀 Batch upload
+   
     batch_size = 100
 
     for i in range(0, len(points), batch_size):
@@ -142,10 +122,6 @@ def index_data(client: QdrantClient, collection_name: str, df: pd.DataFrame, emb
 
     logger.info(f"Indexed {len(points)} points into '{collection_name}'")
 
-
-# ---------------------------
-# Main
-# ---------------------------
 def main():
     params = load_params()
     collection_name = params["qdrant"]["collection_name"]
@@ -166,6 +142,5 @@ def main():
     logger.info("✅ Indexing complete! Ready for hybrid search 🚀")
 
 
-# ---------------------------
 if __name__ == "__main__":
     main()

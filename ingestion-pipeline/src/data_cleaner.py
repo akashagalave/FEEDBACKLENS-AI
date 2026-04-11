@@ -11,21 +11,16 @@ def load_params(path: str = "params.yaml") -> dict:
 def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     logger.info(f"Raw data shape: {df.shape}")
 
-    # Drop nulls in critical columns
     df = df.dropna(subset=["company", "review", "issue"])
 
-    # Strip whitespace
     df["review"] = df["review"].str.strip()
     df["company"] = df["company"].str.strip()
     df["issue"] = df["issue"].str.strip()
 
-    # Remove duplicates
     df = df.drop_duplicates(subset=["review"])
 
-    # Remove very short reviews (noise)
     df = df[df["review"].str.len() >= 20]
 
-    # Lowercase company and issue for consistency
     df["company"] = df["company"].str.lower()
     df["issue"] = df["issue"].str.lower()
     df["domain"] = df["domain"].str.lower()
