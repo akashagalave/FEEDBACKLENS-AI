@@ -44,6 +44,8 @@ jobs:
           echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> $GITHUB_ENV
           echo "QDRANT_HOST=${{ secrets.QDRANT_HOST }}" >> $GITHUB_ENV
           echo "QDRANT_PORT=${{ secrets.QDRANT_PORT }}" >> $GITHUB_ENV
+          echo "QDRANT_API_KEY=${{ secrets.QDRANT_API_KEY }}" >> $GITHUB_ENV
+
 
       - name: Create required directories
         run: |
