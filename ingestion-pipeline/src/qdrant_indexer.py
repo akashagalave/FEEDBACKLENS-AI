@@ -33,13 +33,19 @@ def get_client(params: dict) -> QdrantClient:
     host = os.environ.get("QDRANT_HOST", params["qdrant"]["host"])
     port = int(os.environ.get("QDRANT_PORT", params["qdrant"]["port"]))
     api_key = os.environ.get("QDRANT_API_KEY", params["qdrant"].get("api_key"))
-    
+
+    # Qdrant Cloud URL support
+    if host.startswith("http://") or host.startswith("https://"):
+        return QdrantClient(
+            url=host,
+            api_key=api_key if api_key else None
+        )
+
     return QdrantClient(
         host=host,
         port=port,
         api_key=api_key if api_key else None
     )
-
 # ---------------------------
 # Create Collection
 # ---------------------------
