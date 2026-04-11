@@ -39,10 +39,13 @@ async def hybrid_search(
 
     logger.info(f"Hybrid search | query={query} | company={company} | focus={focus}")
 
+
     qdrant = AsyncQdrantClient(
-        host=settings.qdrant_host,
-        port=settings.qdrant_port
-    )
+    host=settings.qdrant_host,
+    port=settings.qdrant_port,
+    api_key=settings.qdrant_api_key
+      )
+
 
     model = get_embedding_model()
     query_embedding = model.encode(query).tolist()

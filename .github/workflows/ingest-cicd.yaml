@@ -1,0 +1,70 @@
+name: Ingest Pipeline
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "ingestion-pipeline/**"
+      - "data/rag_ready.csv.dvc"
+      - "params.yaml"
+      - "reingest.flag"
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install DVC + dependencies
+        run: |
+          pip install dvc dvc-s3
+          pip install -r ingestion-pipeline/requirements.txt
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            us-east-1
+
+      - name: Configure DVC remote
+        run: |
+          dvc remote add -d -f feedbacklens-s3 s3://feedbacklens-ai-dvc-store
+          dvc remote modify feedbacklens-s3 region us-east-1
+
+      - name: Set environment variables
+        run: |
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> $GITHUB_ENV
+          echo "QDRANT_HOST=${{ secrets.QDRANT_HOST }}" >> $GITHUB_ENV
+          echo "QDRANT_PORT=${{ secrets.QDRANT_PORT }}" >> $GITHUB_ENV
+
+      - name: Create required directories
+        run: |
+          mkdir -p data reports
+          echo "Directories created"
+
+      - name: Pull data from DVC
+        run: dvc pull data/rag_ready.csv.dvc
+
+      - name: Run DVC pipeline
+        run: dvc repro --no-cache
+
+      - name: Push artifacts to S3
+        run: dvc push
+
+      - name: Clear reingest flag
+        run: |
+          if [ -f reingest.flag ]; then
+            git config user.email "ci@feedbacklens.ai"
+            git config user.name "FeedbackLens CI"
+            git rm reingest.flag
+            git commit -m "ci: clear reingest flag after re-indexing"
+            git push
+          fi

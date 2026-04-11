@@ -1,0 +1,101 @@
+name: Deploy Services
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "services/**"
+      - "shared/**"
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      gateway:               ${{ steps.filter.outputs.gateway }}
+      orchestrator:          ${{ steps.filter.outputs.orchestrator }}
+      understanding-agent:   ${{ steps.filter.outputs.understanding-agent }}
+      insight-agent:         ${{ steps.filter.outputs.insight-agent }}
+      recommendation-agent:  ${{ steps.filter.outputs.recommendation-agent }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            gateway:
+              - 'services/gateway/**'
+              - 'shared/**'
+            orchestrator:
+              - 'services/orchestrator/**'
+              - 'shared/**'
+            understanding-agent:
+              - 'services/understanding-agent/**'
+              - 'shared/**'
+            insight-agent:
+              - 'services/insight-agent/**'
+              - 'shared/**'
+            recommendation-agent:
+              - 'services/recommendation-agent/**'
+              - 'shared/**'
+
+  deploy:
+    needs: detect-changes
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - name: gateway
+            ecr: feedbacklens-gateway
+            changed: ${{ needs.detect-changes.outputs.gateway }}
+          - name: orchestrator
+            ecr: feedbacklens-orchestrator
+            changed: ${{ needs.detect-changes.outputs.orchestrator }}
+          - name: understanding-agent
+            ecr: feedbacklens-understanding-agent
+            changed: ${{ needs.detect-changes.outputs.understanding-agent }}
+          - name: insight-agent
+            ecr: feedbacklens-insight-agent
+            changed: ${{ needs.detect-changes.outputs.insight-agent }}
+          - name: recommendation-agent
+            ecr: feedbacklens-recommendation-agent
+            changed: ${{ needs.detect-changes.outputs.recommendation-agent }}
+
+    steps:
+      - name: Skip if not changed
+        if: matrix.service.changed != 'true' && github.event_name != 'workflow_dispatch'
+        run: echo "No changes in ${{ matrix.service.name }} — skipping"
+
+      - uses: actions/checkout@v4
+        if: matrix.service.changed == 'true' || github.event_name == 'workflow_dispatch'
+
+      - name: Configure AWS Credentials
+        if: matrix.service.changed == 'true' || github.event_name == 'workflow_dispatch'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            us-east-1
+
+      - name: Login to ECR
+        if: matrix.service.changed == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          aws ecr get-login-password --region us-east-1 | \
+          docker login --username AWS --password-stdin \
+          618015514032.dkr.ecr.us-east-1.amazonaws.com
+
+      - name: Build and push image
+        if: matrix.service.changed == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          ECR=618015514032.dkr.ecr.us-east-1.amazonaws.com
+          SVC=${{ matrix.service.name }}
+          ECR_REPO=${{ matrix.service.ecr }}
+          docker build \
+            -f services/$SVC/Dockerfile \
+            -t $ECR/$ECR_REPO:${{ github.sha }} \
+            -t $ECR/$ECR_REPO:latest \
+            .
+          docker push $ECR/$ECR_REPO:${{ github.sha }}
+          docker push $ECR/$ECR_REPO:latest

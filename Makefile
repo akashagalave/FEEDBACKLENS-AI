@@ -67,7 +67,7 @@ test:
 	@echo "All services healthy!"
 
 # ─── ECR PUSH ────────────────────────────────────────────────
-AWS_REGION=ap-south-1
+AWS_REGION=us-east-1
 AWS_ACCOUNT_ID=$(shell aws sts get-caller-identity --query Account --output text)
 ECR_BASE=$(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
 

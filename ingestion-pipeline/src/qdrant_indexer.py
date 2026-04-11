@@ -23,10 +23,16 @@ def load_params(path: str = "params.yaml") -> dict:
 # ---------------------------
 # Qdrant Client
 # ---------------------------
+# def get_client(params: dict) -> QdrantClient:
+#     return QdrantClient(
+#         host=params["qdrant"]["host"],
+#         port=params["qdrant"]["port"]
+#     )
 def get_client(params: dict) -> QdrantClient:
     return QdrantClient(
         host=params["qdrant"]["host"],
-        port=params["qdrant"]["port"]
+        port=params["qdrant"]["port"],
+        api_key=params["qdrant"].get("api_key")
     )
 
 
