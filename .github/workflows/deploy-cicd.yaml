@@ -14,8 +14,8 @@ jobs:
     outputs:
       gateway:               ${{ steps.filter.outputs.gateway }}
       orchestrator:          ${{ steps.filter.outputs.orchestrator }}
-      understanding-agent:   ${{ steps.filter.outputs.understanding-agent }}
-      insight-agent:         ${{ steps.filter.outputs.insight-agent }}
+      understanding_agent:   ${{ steps.filter.outputs.understanding-agent }}
+      insight_agent:         ${{ steps.filter.outputs.insight-agent }}
       recommendation-agent:  ${{ steps.filter.outputs.recommendation-agent }}
 
     steps:
@@ -31,11 +31,11 @@ jobs:
             orchestrator:
               - 'services/orchestrator/**'
               - 'shared/**'
-            understanding-agent:
-              - 'services/understanding-agent/**'
+            understanding_agent:
+              - 'services/understanding_agent/**'
               - 'shared/**'
-            insight-agent:
-              - 'services/insight-agent/**'
+            insight_agent:
+              - 'services/insight_agent/**'
               - 'shared/**'
             recommendation-agent:
               - 'services/recommendation-agent/**'
@@ -53,10 +53,10 @@ jobs:
           - name: orchestrator
             ecr: feedbacklens-orchestrator
             changed: ${{ needs.detect-changes.outputs.orchestrator }}
-          - name: understanding-agent
+          - name: understanding_agent
             ecr: feedbacklens-understanding-agent
             changed: ${{ needs.detect-changes.outputs.understanding-agent }}
-          - name: insight-agent
+          - name: insight_agent
             ecr: feedbacklens-insight-agent
             changed: ${{ needs.detect-changes.outputs.insight-agent }}
           - name: recommendation-agent
