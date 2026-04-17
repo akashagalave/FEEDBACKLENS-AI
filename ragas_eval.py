@@ -1,6 +1,5 @@
 import os
 import json
-import pandas as pd
 from datasets import Dataset
 from ragas import evaluate
 from ragas.metrics import (
@@ -14,6 +13,7 @@ from qdrant_client import QdrantClient
 from sentence_transformers import SentenceTransformer
 from loguru import logger
 from dotenv import load_dotenv
+
 load_dotenv()
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
@@ -24,6 +24,30 @@ COLLECTION_NAME = "feedbacklens"
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+
+GROUND_TRUTHS = {
+    "What are the main delivery issues with Swiggy?": [
+        "late delivery",
+        "cold food",
+        "delayed orders"
+    ],
+    "What do customers complain about Swiggy delivery time?": [
+        "late delivery",
+        "long wait time"
+    ],
+    "What are Uber pricing problems?": [
+        "surge pricing",
+        "high fares"
+    ],
+    "What issues do Uber customers face?": [
+        "driver cancellation",
+        "pricing issues"
+    ],
+    "What are common Swiggy customer support issues?": [
+        "slow response",
+        "refund delay"
+    ]
+}
 
 def get_qdrant():
     if QDRANT_HOST.startswith("http"):
@@ -36,6 +60,7 @@ def retrieve_contexts(query: str, company: str, top_k: int = 5) -> list[str]:
     embedding = embedding_model.encode(query).tolist()
 
     from qdrant_client.models import Filter, FieldCondition, MatchValue
+
     results = qdrant.search(
         collection_name=COLLECTION_NAME,
         query_vector=embedding,
@@ -44,19 +69,23 @@ def retrieve_contexts(query: str, company: str, top_k: int = 5) -> list[str]:
         ),
         limit=top_k
     )
-    return [r.payload["review"] for r in results]
+
+    return [r.payload.get("review", "") for r in results]
+
 
 def generate_answer(query: str, contexts: list[str]) -> str:
     context_str = "\n".join(f"- {c}" for c in contexts)
+
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": "You are a product analyst. Answer based on the reviews provided."},
+            {"role": "system", "content": "You are a product analyst. Answer strictly based on the provided reviews."},
             {"role": "user", "content": f"Query: {query}\n\nReviews:\n{context_str}"}
         ],
         temperature=0.2,
         max_tokens=300
     )
+
     return response.choices[0].message.content.strip()
 
 
@@ -86,16 +115,20 @@ def run_evaluation():
         retrieved = retrieve_contexts(query, company, top_k=5)
         answer = generate_answer(query, retrieved)
 
+        
+        gt_list = GROUND_TRUTHS.get(query, [])
+        gt_string = ", ".join(gt_list)
+
         questions.append(query)
         answers.append(answer)
         contexts.append(retrieved)
-        ground_truths.append(retrieved[:2])
+        ground_truths.append(gt_string)
 
     dataset = Dataset.from_dict({
         "question": questions,
         "answer": answers,
         "contexts": contexts,
-        "ground_truth": [g[0] if g else "" for g in ground_truths]
+        "ground_truth": ground_truths
     })
 
     logger.info("Running RAGAS metrics...")
@@ -122,12 +155,13 @@ def run_evaluation():
         logger.info(f"  {k}: {v}")
 
     os.makedirs("reports", exist_ok=True)
+
     with open("reports/ragas_results.json", "w") as f:
         json.dump(results_dict, f, indent=2)
 
     logger.info("Results saved to reports/ragas_results.json")
-    return results_dict
 
+    return results_dict
 
 if __name__ == "__main__":
     run_evaluation()
